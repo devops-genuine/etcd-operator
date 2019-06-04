@@ -24,7 +24,7 @@ import (
 
 const (
 	defaultRepository  = "quay.io/coreos/etcd"
-	DefaultEtcdVersion = "3.2.13"
+	DefaultEtcdVersion = "3.3.13"
 )
 
 var (
@@ -88,6 +88,9 @@ type ClusterSpec struct {
 	//
 	// If version is not set, default is "3.2.13".
 	Version string `json:"version,omitempty"`
+
+	// Kubernetes Node Role to Apply with PodAntiAffinity (Default kubernetes.io/role=node)
+	PodAntiAffinityNodeRole string `json:"podAntiAffinityNodeRole"`
 
 	// Paused is to pause the control of the operator for the etcd cluster.
 	Paused bool `json:"paused,omitempty"`
@@ -196,6 +199,11 @@ func (e *EtcdCluster) SetDefaults() {
 
 	c.Version = strings.TrimLeft(c.Version, "v")
 
+	c.Pod.AntiAffinity = true
+    c.Pod.NodeSelector = map[string]string{
+		"kubernetes.io/role": c.PodAntiAffinityNodeRole,
+	}
+
 	// convert PodPolicy.AntiAffinity to Pod.Affinity.PodAntiAffinity
 	// TODO: Remove this once PodPolicy.AntiAffinity is removed
 	if c.Pod != nil && c.Pod.AntiAffinity && c.Pod.Affinity == nil {
@@ -205,7 +213,7 @@ func (e *EtcdCluster) SetDefaults() {
 					{
 						// set anti-affinity to the etcd pods that belongs to the same cluster
 						LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-							"etcd_cluster": e.Name,
+							"kubernetes.io/role": c.PodAntiAffinityNodeRole,
 						}},
 						TopologyKey: "kubernetes.io/hostname",
 					},
